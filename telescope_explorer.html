@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Telescope Explorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0a1a;
+    color: #e8e8f0;
+    font-family: 'Georgia', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    text-align: center;
+    padding: 32px 20px 16px;
+    background: linear-gradient(180deg, #0d0d2b 0%, #0a0a1a 100%);
+  }
+
+  header h1 {
+    font-size: 2.2rem;
+    color: #c8d8ff;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px #4466ff88;
+  }
+
+  header p {
+    color: #8899cc;
+    margin-top: 8px;
+    font-size: 1rem;
+  }
+
+  .stars {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 3s infinite alternate;
+  }
+
+  @keyframes twinkle {
+    0% { opacity: 0.2; }
+    100% { opacity: 1; }
+  }
+
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tab-btn {
+    background: #1a1a3a;
+    border: 2px solid #3344aa;
+    color: #aabbee;
+    padding: 12px 32px;
+    border-radius: 30px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tab-btn.active {
+    background: #2233aa;
+    border-color: #6688ff;
+    color: white;
+    box-shadow: 0 0 20px #4466ff88;
+  }
+
+  .section {
+    display: none;
+    position: relative;
+    z-index: 1;
+    padding: 0 20px 40px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .section.active { display: block; }
+
+  .intro-card {
+    background: #111130;
+    border: 1px solid #2233aa;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #c0ccee;
+  }
+
+  .intro-card h2 {
+    color: #88aaff;
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+  }
+
+  /* ── Diagram canvas area ── */
+  .diagram-area {
+    background: #080818;
+    border: 1px solid #2233aa;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .diagram-area svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* ── Slider ── */
+  .slider-section {
+    background: #111130;
+    border: 1px solid #2233aa;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+
+  .slider-section h3 {
+    color: #88aaff;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+  }
+
+  .slider-section p {
+    color: #8899cc;
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: #2233aa;
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #6688ff;
+    cursor: pointer;
+    box-shadow: 0 0 10px #4466ffaa;
+  }
+
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    color: #6677aa;
+    font-size: 0.85rem;
+    margin-top: 6px;
+  }
+
+  /* ── Tap-to-reveal parts ── */
+  .parts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .part-card {
+    background: #111130;
+    border: 2px solid #2233aa;
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .part-card:active, .part-card.revealed {
+    border-color: #6688ff;
+    background: #1a1a4a;
+  }
+
+  .part-card .part-name {
+    color: #88aaff;
+    font-size: 1rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .part-card .part-name .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .part-card .part-desc {
+    color: #a0b0dd;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin-top: 10px;
+    display: none;
+  }
+
+  .part-card.revealed .part-desc { display: block; }
+
+  .part-card .tap-hint {
+    color: #445588;
+    font-size: 0.78rem;
+    margin-top: 6px;
+  }
+
+  .part-card.revealed .tap-hint { display: none; }
+
+  /* ── Ray animation toggle ── */
+  .anim-btn {
+    display: block;
+    margin: 0 auto 20px;
+    background: #1a2255;
+    border: 2px solid #3355cc;
+    color: #aabbff;
+    padding: 10px 28px;
+    border-radius: 24px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .anim-btn.playing {
+    background: #223388;
+    border-color: #6688ff;
+    color: white;
+    box-shadow: 0 0 14px #4466ff66;
+  }
+
+  /* ── Ray animation SVG ── */
+  .ray { stroke-dasharray: 600; stroke-dashoffset: 600; }
+  .ray.animate { animation: drawRay 1.8s ease forwards; }
+  @keyframes drawRay { to { stroke-dashoffset: 0; } }
+
+  .ray2 { stroke-dasharray: 600; stroke-dashoffset: 600; }
+  .ray2.animate { animation: drawRay 1.8s ease 0.4s forwards; }
+
+  .ray3 { stroke-dasharray: 600; stroke-dashoffset: 600; }
+  .ray3.animate { animation: drawRay 1.8s ease 0.8s forwards; }
+
+  /* focal point pulse */
+  .focal-pulse { opacity: 0; }
+  .focal-pulse.animate { animation: pulseIn 0.6s ease 2s forwards; }
+  .focal-pulse.svg-highlight { opacity: 0.9; }
+    0% { opacity: 0; r: 2; }
+    60% { opacity: 1; r: 9; }
+    100% { opacity: 0.9; r: 6; }
+  }
+
+  /* eyepiece glow */
+  .ep-glow { opacity: 0; }
+  .ep-glow.animate { animation: glowIn 0.8s ease 2.4s forwards; }
+  @keyframes glowIn { to { opacity: 0.7; } }
+
+  /* ── Footer ── */
+  .page-footer {
+    text-align: center;
+    padding: 24px 20px 8px;
+    color: #445577;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+  }
+
+  .page-footer a {
+    color: #5566aa;
+    text-decoration: none;
+  }
+
+  .page-footer a:hover { color: #88aaff; }
+
+  /* ── Part highlight glow on SVG elements ── */
+  .svg-highlight {
+    animation: svgPulse 1.4s ease-in-out infinite alternate;
+    opacity: 1 !important;
+  }
+  @keyframes svgPulse {
+    0%  { filter: drop-shadow(0 0 4px #6688ff99) drop-shadow(0 0 10px #4466ff66); }
+    100% { filter: drop-shadow(0 0 10px #88aaff) drop-shadow(0 0 22px #6688ffcc); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Starfield -->
+<div class="stars" id="stars"></div>
+
+<header>
+  <h1>&#9733; Telescope Explorer</h1>
+  <p id="header-subtitle">Tap the parts to learn more &bull; Use the slider to explore</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('refractor')">Refractor</button>
+  <button class="tab-btn" onclick="showTab('reflector')">Reflector</button>
+  <button class="tab-btn" onclick="showTab('compare')">Compare</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     REFRACTOR SECTION
+═══════════════════════════════════════════════ -->
+<div class="section active" id="refractor">
+
+  <div class="intro-card">
+    <h2>Refractor Telescope</h2>
+    A refractor uses <strong>glass lenses</strong> to bend (refract) light and bring it to a focus.
+    Light enters through a large <em>objective lens</em> at the front, travels down the tube,
+    and converges at a focal point before reaching your eye through the <em>eyepiece</em>.
+    Refractors are great for viewing the Moon, planets, and double stars.
+  </div>
+
+  <div class="diagram-area">
+    <svg id="refractor-svg" viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg">
+      <!-- Tube body -->
+      <rect id="ref-tube" x="80" y="108" width="540" height="44" rx="6" fill="#1a1a3a" stroke="#3355aa" stroke-width="2"/>
+      <!-- Dew shield / front rim -->
+      <rect id="ref-dewshield" x="60" y="100" width="28" height="60" rx="4" fill="#222255" stroke="#4466cc" stroke-width="2"/>
+      <!-- Focuser rack -->
+      <rect id="ref-focuser-rack" x="590" y="90" width="52" height="80" rx="6" fill="#1a1a3a" stroke="#3355aa" stroke-width="1.5"/>
+      <!-- Focuser draw-tube -->
+      <rect id="ref-focuser" x="618" y="100" width="80" height="60" rx="4" fill="#222244" stroke="#5566bb" stroke-width="1.5"/>
+      <!-- Eyepiece -->
+      <rect id="ref-eyepiece-obj" x="686" y="108" width="28" height="44" rx="5" fill="#2a2a5a" stroke="#6688ff" stroke-width="2"/>
+      <!-- Eye symbol -->
+      <ellipse cx="700" cy="130" rx="10" ry="6" fill="none" stroke="#88aaff" stroke-width="1.5"/>
+      <circle cx="700" cy="130" r="3" fill="#88aaff"/>
+
+      <!-- Objective lens (front) -->
+      <ellipse id="ref-objective-lens" cx="80" cy="130" rx="6" ry="28" fill="#4477cc88" stroke="#88bbff" stroke-width="2.5"/>
+
+      <!-- Light rays INCOMING (parallel) -->
+      <line class="ray" id="r1" x1="0" y1="108" x2="80" y2="108" stroke="#ffee44" stroke-width="2.5" opacity="0.9"/>
+      <line class="ray" id="r2" x1="0" y1="130" x2="80" y2="130" stroke="#ffee44" stroke-width="2.5" opacity="0.9"/>
+      <line class="ray" id="r3" x1="0" y1="152" x2="80" y2="152" stroke="#ffee44" stroke-width="2.5" opacity="0.9"/>
+
+      <!-- Refracted rays converging to focal point inside focuser draw-tube -->
+      <line class="ray2" id="r4" x1="80" y1="108" x2="630" y2="130" stroke="#ffcc22" stroke-width="2" opacity="0.8"/>
+      <line class="ray2" id="r5" x1="80" y1="130" x2="630" y2="130" stroke="#ffcc22" stroke-width="2" opacity="0.8"/>
+      <line class="ray2" id="r6" x1="80" y1="152" x2="630" y2="130" stroke="#ffcc22" stroke-width="2" opacity="0.8"/>
+
+      <!-- Diverging to eyepiece -->
+      <line class="ray3" id="r7" x1="630" y1="130" x2="686" y2="116" stroke="#ff9900" stroke-width="2" opacity="0.8"/>
+      <line class="ray3" id="r8" x1="630" y1="130" x2="686" y2="130" stroke="#ff9900" stroke-width="2" opacity="0.8"/>
+      <line class="ray3" id="r9" x1="630" y1="130" x2="686" y2="144" stroke="#ff9900" stroke-width="2" opacity="0.8"/>
+
+      <!-- Focal point (inside focuser draw-tube) -->
+      <circle class="focal-pulse" id="focal-ref" cx="630" cy="130" r="6" fill="#ffcc00" filter="url(#glow)"/>
+
+      <!-- Eyepiece glow -->
+      <rect class="ep-glow" x="686" y="108" width="28" height="44" rx="5" fill="#6688ff" opacity="0"/>
+
+      <!-- Labels -->
+      <text x="74" y="88" fill="#aabbff" font-size="11" text-anchor="middle">Objective</text>
+      <text x="74" y="100" fill="#aabbff" font-size="11" text-anchor="middle">Lens</text>
+      <text x="630" y="108" fill="#ffcc00" font-size="11" text-anchor="middle">Focal</text>
+      <text x="630" y="118" fill="#ffcc00" font-size="11" text-anchor="middle">Point</text>
+      <text x="700" y="94" fill="#88aaff" font-size="11" text-anchor="middle">Eyepiece</text>
+      <text x="30" y="178" fill="#778899" font-size="10" text-anchor="middle">Light</text>
+      <text x="30" y="190" fill="#778899" font-size="10" text-anchor="middle">from</text>
+      <text x="30" y="202" fill="#778899" font-size="10" text-anchor="middle">star</text>
+
+      <!-- Tripod legs suggestion -->
+      <line x1="280" y1="152" x2="240" y2="220" stroke="#334466" stroke-width="2"/>
+      <line x1="400" y1="152" x2="400" y2="220" stroke="#334466" stroke-width="2"/>
+      <line x1="520" y1="152" x2="560" y2="220" stroke="#334466" stroke-width="2"/>
+      <line x1="220" y1="220" x2="580" y2="220" stroke="#334466" stroke-width="1.5"/>
+
+      <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+    </svg>
+  </div>
+
+  <button class="anim-btn" id="ref-anim-btn" onclick="playRefractorAnim()">&#9654; Show Light Path</button>
+
+  <!-- Focal length slider -->
+  <div class="slider-section">
+    <h3>&#128270; Adjust Eyepiece Position</h3>
+    <p>Drag the slider to move the eyepiece and see how it affects focus. In a real telescope you turn the focuser knob to do this.</p>
+    <input type="range" id="ref-slider" min="0" max="100" value="50" oninput="updateRefSlider(this.value)">
+    <div class="slider-label"><span>Closer in</span><span>Focused</span><span>Further out</span></div>
+    <p id="ref-slider-msg" style="margin-top:12px; color:#88aaff; font-size:0.9rem; text-align:center;">
+      Eyepiece is in focus — the image is sharp and clear.
+    </p>
+  </div>
+
+  <!-- Parts tap-to-reveal -->
+  <div class="parts-grid">
+    <div class="part-card" onclick="togglePart(this)" data-highlight="ref-objective-lens,ref-dewshield">
+      <div class="part-name"><span class="dot" style="background:#88bbff"></span>Objective Lens</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">The large glass lens at the front of the telescope. It gathers light from distant objects and bends it inward, bringing it to a focus. The wider the lens, the more light it collects.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="focal-ref">
+      <div class="part-name"><span class="dot" style="background:#ffcc00"></span>Focal Point</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">The spot where all the light rays converge after passing through the objective lens. The distance from the lens to this point is called the <em>focal length</em> — longer focal lengths give more magnification.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="ref-eyepiece-obj">
+      <div class="part-name"><span class="dot" style="background:#6688ff"></span>Eyepiece</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">A small, removable lens you look through. It acts like a magnifying glass, spreading out the focused light so your eye can see a wide, magnified image. Swapping eyepieces changes the magnification.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="ref-tube,ref-focuser-rack,ref-focuser">
+      <div class="part-name"><span class="dot" style="background:#5599aa"></span>Tube &amp; Focuser</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">The tube keeps stray light out and holds everything in alignment. The focuser is a rack-and-pinion or Crayford mechanism that slides the eyepiece in or out until the image is sharp.</div>
+    </div>
+  </div>
+
+  <div class="page-footer">© Jo Blannin &nbsp;|&nbsp; <a href="mailto:joblannin@gmail.com">joblannin@gmail.com</a></div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     REFLECTOR SECTION  (10" Dobsonian style)
+═══════════════════════════════════════════════ -->
+<div class="section" id="reflector">
+
+  <div class="intro-card">
+    <h2>Reflector Telescope (10&quot; Dobsonian)</h2>
+    A reflector uses <strong>mirrors</strong> instead of lenses. Light travels down the open tube,
+    hits a large curved <em>primary mirror</em> at the bottom, and bounces back up to a small
+    <em>secondary mirror</em> near the top. The secondary deflects the light out the side of the tube
+    into the eyepiece. This design — a Newtonian reflector on a Dobsonian mount — is one of the most
+    popular for backyard astronomy because it gives a <strong>large mirror at low cost</strong>.
+  </div>
+
+  <!-- Dobsonian diagram -->
+  <div class="diagram-area">
+    <svg id="reflector-svg" viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg">
+
+      <!-- ── Rocker box / Dobsonian mount ── -->
+      <!-- Ground board (lazy susan base) -->
+      <ellipse id="dob-ground-board" cx="380" cy="340" rx="140" ry="16" fill="#1a1a2a" stroke="#334466" stroke-width="2"/>
+      <!-- Ground board surface -->
+      <rect id="dob-ground-surface" x="248" y="330" width="264" height="14" rx="4" fill="#141428" stroke="#334466" stroke-width="1.5"/>
+      <!-- Side boards of rocker box -->
+      <rect id="dob-side-left" x="270" y="255" width="22" height="80" rx="3" fill="#1e1e3a" stroke="#445588" stroke-width="2"/>
+      <rect id="dob-side-right" x="468" y="255" width="22" height="80" rx="3" fill="#1e1e3a" stroke="#445588" stroke-width="2"/>
+      <!-- Front board -->
+      <rect id="dob-front-board" x="292" y="288" width="176" height="16" rx="3" fill="#1e1e3a" stroke="#445588" stroke-width="1.5"/>
+      <!-- Altitude bearing arcs on side boards -->
+      <path id="dob-arc-left" d="M270 255 Q281 235 292 255" fill="#2a2a4a" stroke="#556699" stroke-width="1.5"/>
+      <path id="dob-arc-right" d="M490 255 Q479 235 468 255" fill="#2a2a4a" stroke="#556699" stroke-width="1.5"/>
+      <!-- Altitude pivot dots -->
+      <circle id="dob-pivot-left" cx="281" cy="255" r="4" fill="#6688aa"/>
+      <circle id="dob-pivot-right" cx="479" cy="255" r="4" fill="#6688aa"/>
+
+      <!-- ── Telescope tube (vertical/slightly tilted) ── -->
+      <!-- Main tube body -->
+      <rect x="334" y="60" width="92" height="200" rx="10" fill="#181830" stroke="#3355aa" stroke-width="2.5"/>
+      <!-- Open top rim (light enters here) -->
+      <rect x="330" y="52" width="100" height="18" rx="5" fill="#222244" stroke="#4466cc" stroke-width="2"/>
+      <!-- Spider vanes hint (thin cross at top) -->
+      <line x1="380" y1="52" x2="380" y2="70" stroke="#334466" stroke-width="1"/>
+      <line x1="334" y1="61" x2="426" y2="61" stroke="#334466" stroke-width="1"/>
+
+      <!-- Tube rings (cosmetic bands) -->
+      <rect x="332" y="100" width="96" height="10" rx="3" fill="#222248" stroke="#445599" stroke-width="1.5"/>
+      <rect x="332" y="200" width="96" height="10" rx="3" fill="#222248" stroke="#445599" stroke-width="1.5"/>
+
+      <!-- ── Primary mirror at bottom of tube ── -->
+      <ellipse id="dob-primary-mirror" cx="380" cy="248" rx="42" ry="8" fill="#334466" stroke="#5577bb" stroke-width="2"/>
+      <!-- Mirror face shine -->
+      <ellipse id="dob-primary-shine1" cx="380" cy="246" rx="38" ry="5" fill="#2a3d66" stroke="#7799cc" stroke-width="1"/>
+      <ellipse id="dob-primary-shine2" cx="380" cy="245" rx="28" ry="3" fill="#3355aa44"/>
+      <!-- Mirror cell / bottom cap -->
+      <rect id="dob-mirror-cell" x="336" y="250" width="88" height="12" rx="4" fill="#111128" stroke="#334466" stroke-width="1.5"/>
+
+      <!-- ── Secondary mirror (diagonal, near top) ── -->
+      <!-- Spider holder -->
+      <circle id="dob-secondary-holder" cx="380" cy="90" r="6" fill="#223355" stroke="#4466aa" stroke-width="1.5"/>
+      <!-- Secondary mirror face (diagonal ellipse) -->
+      <ellipse id="dob-secondary-mirror" cx="380" cy="90" rx="12" ry="7" fill="#2a3d66" stroke="#7799cc" stroke-width="2" transform="rotate(-30 380 90)"/>
+
+      <!-- ── Focuser on side of tube ── -->
+      <rect id="dob-focuser-rack" x="424" y="74" width="44" height="36" rx="5" fill="#1a1a3a" stroke="#3355aa" stroke-width="2"/>
+      <!-- Focuser draw-tube -->
+      <rect id="dob-focuser" x="464" y="79" width="60" height="26" rx="3" fill="#222244" stroke="#5566bb" stroke-width="1.5"/>
+      <!-- Eyepiece — sits flush at end of draw-tube -->
+      <rect id="dob-eyepiece-obj" x="520" y="72" width="24" height="40" rx="4" fill="#2a2a5a" stroke="#6688ff" stroke-width="2"/>
+      <!-- Eye symbol -->
+      <ellipse cx="532" cy="92" rx="8" ry="5" fill="none" stroke="#88aaff" stroke-width="1.5"/>
+      <circle cx="532" cy="92" r="2.5" fill="#88aaff"/>
+
+      <!-- ── Light rays ── -->
+      <!-- Incoming parallel light from top -->
+      <line class="ray" id="d1" x1="350" y1="0" x2="350" y2="248" stroke="#ffee44" stroke-width="2.5" opacity="0.85"/>
+      <line class="ray" id="d2" x1="380" y1="0" x2="380" y2="248" stroke="#ffee44" stroke-width="2.5" opacity="0.85"/>
+      <line class="ray" id="d3" x1="410" y1="0" x2="410" y2="248" stroke="#ffee44" stroke-width="2.5" opacity="0.85"/>
+
+      <!-- Reflected from primary up to secondary -->
+      <line class="ray2" id="d4" x1="350" y1="248" x2="380" y2="90" stroke="#ffcc22" stroke-width="2" opacity="0.8"/>
+      <line class="ray2" id="d5" x1="380" y1="248" x2="380" y2="90" stroke="#ffcc22" stroke-width="2" opacity="0.8"/>
+      <line class="ray2" id="d6" x1="410" y1="248" x2="380" y2="90" stroke="#ffcc22" stroke-width="2" opacity="0.8"/>
+
+      <!-- Deflected from secondary, converging to focal point inside draw-tube -->
+      <line class="ray3" id="d7" x1="380" y1="90" x2="490" y2="88" stroke="#ff9900" stroke-width="2" opacity="0.8"/>
+      <line class="ray3" id="d8" x1="380" y1="90" x2="490" y2="92" stroke="#ff9900" stroke-width="2" opacity="0.8"/>
+      <line class="ray3" id="d9" x1="380" y1="90" x2="490" y2="96" stroke="#ff9900" stroke-width="2" opacity="0.8"/>
+
+      <!-- Focal point inside focuser draw-tube -->
+      <circle class="focal-pulse" id="focal-dob" cx="490" cy="92" r="6" fill="#ffcc00" filter="url(#glow2)"/>
+      <rect class="ep-glow" x="520" y="72" width="24" height="40" rx="4" fill="#6688ff" opacity="0"/>
+
+      <!-- ── Labels ── -->
+      <!-- Open top label — above diagram, centred -->
+      <text x="380" y="22" fill="#c8d8ff" font-size="11" text-anchor="middle" font-weight="bold">Open Top (Light enters)</text>
+      <line x1="380" y1="25" x2="380" y2="50" stroke="#c8d8ff" stroke-width="1" stroke-dasharray="3,2" opacity="0.6"/>
+
+      <!-- Secondary Mirror — leader line to right -->
+      <line x1="392" y1="90" x2="580" y2="80" stroke="#aabbff" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+      <text x="584" y="76" fill="#c8d8ff" font-size="11" font-weight="bold">Secondary</text>
+      <text x="584" y="89" fill="#c8d8ff" font-size="11" font-weight="bold">Mirror</text>
+
+      <!-- Focuser label — leader line right -->
+      <line x1="468" y1="92" x2="584" y2="108" stroke="#aabbff" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+      <text x="584" y="105" fill="#c8d8ff" font-size="11" font-weight="bold">Focuser &amp;</text>
+      <text x="584" y="118" fill="#c8d8ff" font-size="11" font-weight="bold">Eyepiece</text>
+
+      <!-- Primary Mirror — leader line right -->
+      <line x1="422" y1="248" x2="584" y2="230" stroke="#aabbff" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+      <text x="584" y="227" fill="#c8d8ff" font-size="11" font-weight="bold">Primary</text>
+      <text x="584" y="240" fill="#c8d8ff" font-size="11" font-weight="bold">Mirror</text>
+      <text x="584" y="253" fill="#8899bb" font-size="10">10&quot; (254mm)</text>
+
+      <!-- Dobsonian Mount — below, centred -->
+      <text x="380" y="358" fill="#99aacc" font-size="10" text-anchor="middle">Rocker Box &amp; Ground Board (Dobsonian Mount)</text>
+
+      <defs>
+        <filter id="glow2">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#445577"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <button class="anim-btn" id="dob-anim-btn" onclick="playReflectorAnim()">&#9654; Show Light Path</button>
+
+  <!-- Focuser slider -->
+  <div class="slider-section">
+    <h3>&#128270; Adjust Eyepiece Position</h3>
+    <p>Drag the slider to rack the focuser in or out. In a Dobsonian you turn the large focuser knob on the side of the tube.</p>
+    <input type="range" id="dob-slider" min="0" max="100" value="50" oninput="updateDobSlider(this.value)">
+    <div class="slider-label"><span>Racked in</span><span>Focused</span><span>Racked out</span></div>
+    <p id="dob-slider-msg" style="margin-top:12px; color:#88aaff; font-size:0.9rem; text-align:center;">
+      Eyepiece is in focus — the image is sharp and clear.
+    </p>
+  </div>
+
+  <!-- Parts -->
+  <div class="parts-grid">
+    <div class="part-card" onclick="togglePart(this)" data-highlight="dob-primary-mirror,dob-primary-shine1,dob-primary-shine2,dob-mirror-cell">
+      <div class="part-name"><span class="dot" style="background:#7799cc"></span>Primary Mirror</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">The large curved (parabolic) mirror at the bottom of the tube. At 10 inches (254 mm) across, it collects a huge amount of light — about 1,600 times more than the human eye — and reflects it upward to a point.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="dob-secondary-mirror,dob-secondary-holder">
+      <div class="part-name"><span class="dot" style="background:#5577aa"></span>Secondary Mirror</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">A small, flat mirror held in the centre of the tube by a metal "spider". It sits at 45° and deflects the converging light sideways out through the focuser hole in the tube wall.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="dob-eyepiece-obj,dob-focuser,dob-focuser-rack">
+      <div class="part-name"><span class="dot" style="background:#6688ff"></span>Eyepiece &amp; Focuser</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">The eyepiece magnifies the focused image. The focuser on the side of the tube racks the eyepiece in or out to sharpen the image, just like in a refractor.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="dob-ground-board,dob-ground-surface,dob-side-left,dob-side-right,dob-front-board,dob-arc-left,dob-arc-right,dob-pivot-left,dob-pivot-right">
+      <div class="part-name"><span class="dot" style="background:#445588"></span>Dobsonian Mount</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">A simple, low-cost alt-azimuth mount made of a rocker box sitting on a rotating ground board. It moves up-down (altitude) and left-right (azimuth). No motors needed — you simply push the tube to point at objects.</div>
+    </div>
+  </div>
+
+  <div class="page-footer">© Jo Blannin &nbsp;|&nbsp; <a href="mailto:joblannin@gmail.com">joblannin@gmail.com</a></div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     COMPARE SECTION
+═══════════════════════════════════════════════ -->
+<div class="section" id="compare">
+
+  <div class="intro-card">
+    <h2>Refractor vs Reflector</h2>
+    Both types collect light and magnify distant objects, but they work differently and each has its own strengths. Tap each card to reveal more.
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+
+    <div style="background:#111130; border:2px solid #2233aa; border-radius:14px; padding:18px;">
+      <div style="color:#88bbff; font-size:1.1rem; font-weight:bold; margin-bottom:10px;">&#128300; Refractor</div>
+      <ul style="color:#a0b0dd; font-size:0.88rem; line-height:1.8; padding-left:16px;">
+        <li>Uses <strong>lenses</strong></li>
+        <li>Sealed tube — low maintenance</li>
+        <li>Sharp, high-contrast views</li>
+        <li>Great for Moon &amp; planets</li>
+        <li>Gets expensive at large sizes</li>
+        <li>Can cause colour fringing (<em>chromatic aberration</em>)</li>
+      </ul>
+    </div>
+
+    <div style="background:#111130; border:2px solid #2233aa; border-radius:14px; padding:18px;">
+      <div style="color:#88aaff; font-size:1.1rem; font-weight:bold; margin-bottom:10px;">&#128302; Reflector (Dobsonian)</div>
+      <ul style="color:#a0b0dd; font-size:0.88rem; line-height:1.8; padding-left:16px;">
+        <li>Uses <strong>mirrors</strong></li>
+        <li>No colour fringing</li>
+        <li>Large aperture at low cost</li>
+        <li>Superb for deep-sky objects</li>
+        <li>Mirrors need occasional realignment (<em>collimation</em>)</li>
+        <li>Open tube can let in dust</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Comparison diagrams -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+
+    <!-- Refractor mini diagram -->
+    <div class="diagram-area" style="padding:12px;">
+      <div style="color:#88bbff; font-size:0.9rem; font-weight:bold; margin-bottom:8px; text-align:center;">&#128300; Refractor</div>
+      <svg viewBox="0 0 300 130" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;">
+        <!-- Tube -->
+        <rect x="30" y="52" width="220" height="30" rx="4" fill="#181830" stroke="#3355aa" stroke-width="1.5"/>
+        <!-- Dew shield -->
+        <rect x="18" y="46" width="18" height="42" rx="3" fill="#222255" stroke="#4466cc" stroke-width="1.5"/>
+
+        <!-- Objective lens — aperture + refraction element -->
+        <ellipse id="cmp-ref-lens" cx="30" cy="67" rx="5" ry="20" fill="#4477cc88" stroke="#88bbff" stroke-width="2"/>
+
+        <!-- Aperture diameter indicator line — sits left of diagram, glows on Aperture click -->
+        <line id="cmp-ref-aperture-line" x1="8" y1="47" x2="8" y2="87" stroke="#ffcc00" stroke-width="2.5" stroke-linecap="round" opacity="0.25"/>
+        <line x1="5" y1="47" x2="11" y2="47" stroke="#ffcc00" stroke-width="1.5" opacity="0.25" id="cmp-ref-aperture-cap-top"/>
+        <line x1="5" y1="87" x2="11" y2="87" stroke="#ffcc00" stroke-width="1.5" opacity="0.25" id="cmp-ref-aperture-cap-bot"/>
+        <text id="cmp-ref-aperture-label" x="8" y="42" fill="#ffcc00" font-size="8" text-anchor="middle" opacity="0.25">aperture</text>
+
+        <!-- Focal length arrow -->
+        <line id="cmp-ref-focallen-line" x1="30" y1="100" x2="190" y2="100" stroke="#ff9900" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.3" marker-end="url(#cmp-arr-orange)" marker-start="url(#cmp-arr-orange-rev)"/>
+        <text id="cmp-ref-focallen-label" x="110" y="114" fill="#ff9900" font-size="9" text-anchor="middle" opacity="0.3">focal length</text>
+
+        <!-- Focal point -->
+        <circle id="cmp-ref-focal" cx="190" cy="67" r="4" fill="#ffcc00" opacity="0.85"/>
+
+        <!-- Focuser + eyepiece -->
+        <rect x="230" y="46" width="16" height="42" rx="3" fill="#1a1a3a" stroke="#3355aa" stroke-width="1.2"/>
+        <rect id="cmp-ref-ep" x="244" y="50" width="18" height="34" rx="3" fill="#2a2a5a" stroke="#6688ff" stroke-width="1.8"/>
+        <!-- Eye -->
+        <ellipse cx="253" cy="67" rx="6" ry="4" fill="none" stroke="#88aaff" stroke-width="1.2"/>
+        <circle cx="253" cy="67" r="2" fill="#88aaff"/>
+
+        <!-- Incoming rays -->
+        <line x1="0" y1="52" x2="30" y2="52" stroke="#ffee44" stroke-width="1.5" opacity="0.7"/>
+        <line x1="0" y1="67" x2="30" y2="67" stroke="#ffee44" stroke-width="1.5" opacity="0.7"/>
+        <line x1="0" y1="82" x2="30" y2="82" stroke="#ffee44" stroke-width="1.5" opacity="0.7"/>
+        <!-- Converging rays -->
+        <line x1="30" y1="52" x2="190" y2="67" stroke="#ffcc22" stroke-width="1.2" opacity="0.7"/>
+        <line x1="30" y1="67" x2="190" y2="67" stroke="#ffcc22" stroke-width="1.2" opacity="0.7"/>
+        <line x1="30" y1="82" x2="190" y2="67" stroke="#ffcc22" stroke-width="1.2" opacity="0.7"/>
+        <!-- Diverging to eyepiece -->
+        <line x1="190" y1="67" x2="244" y2="58" stroke="#ff9944" stroke-width="1.2" opacity="0.7"/>
+        <line x1="190" y1="67" x2="244" y2="67" stroke="#ff9944" stroke-width="1.2" opacity="0.7"/>
+        <line x1="190" y1="67" x2="244" y2="76" stroke="#ff9944" stroke-width="1.2" opacity="0.7"/>
+
+        <!-- Labels -->
+        <text x="30" y="30" fill="#aabbff" font-size="9" text-anchor="middle">Objective</text>
+        <text x="30" y="40" fill="#aabbff" font-size="9" text-anchor="middle">Lens</text>
+        <text x="253" y="30" fill="#88aaff" font-size="9" text-anchor="middle">Eyepiece</text>
+        <text x="190" y="55" fill="#ffcc00" font-size="9" text-anchor="middle">Focal Pt</text>
+
+        <defs>
+          <marker id="cmp-arr-orange" markerWidth="5" markerHeight="5" refX="5" refY="2.5" orient="auto">
+            <path d="M0,0 L5,2.5 L0,5 Z" fill="#ff9900"/>
+          </marker>
+          <marker id="cmp-arr-orange-rev" markerWidth="5" markerHeight="5" refX="0" refY="2.5" orient="auto">
+            <path d="M5,0 L0,2.5 L5,5 Z" fill="#ff9900"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- Reflector mini diagram -->
+    <div class="diagram-area" style="padding:12px;">
+      <div style="color:#88aaff; font-size:0.9rem; font-weight:bold; margin-bottom:8px; text-align:center;">&#128302; Reflector</div>
+      <svg viewBox="0 0 300 155" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;">
+        <!-- Tube (vertical) -->
+        <rect x="120" y="10" width="60" height="95" rx="6" fill="#181830" stroke="#3355aa" stroke-width="1.5"/>
+        <!-- Open top rim -->
+        <rect x="116" y="6" width="68" height="12" rx="3" fill="#222244" stroke="#4466cc" stroke-width="1.5"/>
+
+        <!-- Primary mirror — aperture + reflection element -->
+        <ellipse id="cmp-dob-mirror" cx="150" cy="97" rx="28" ry="6" fill="#334466" stroke="#5577bb" stroke-width="2"/>
+        <ellipse cx="150" cy="95" rx="24" ry="4" fill="#2a3d66" stroke="#7799cc" stroke-width="1"/>
+
+        <!-- Aperture diameter indicator line — sits below mirror, glows on Aperture click -->
+        <line id="cmp-dob-aperture-line" x1="122" y1="118" x2="178" y2="118" stroke="#ffcc00" stroke-width="2.5" stroke-linecap="round" opacity="0.25"/>
+        <line x1="122" y1="115" x2="122" y2="121" stroke="#ffcc00" stroke-width="1.5" opacity="0.25" id="cmp-dob-aperture-cap-left"/>
+        <line x1="178" y1="115" x2="178" y2="121" stroke="#ffcc00" stroke-width="1.5" opacity="0.25" id="cmp-dob-aperture-cap-right"/>
+        <text id="cmp-dob-aperture-label" x="150" y="133" fill="#ffcc00" font-size="8" text-anchor="middle" opacity="0.25">aperture</text>
+
+        <!-- Primary Mirror label -->
+        <text x="150" y="148" fill="#aabbff" font-size="9" text-anchor="middle">Primary Mirror</text>
+
+        <!-- Secondary mirror -->
+        <ellipse cx="150" cy="35" rx="8" ry="5" fill="#2a3d66" stroke="#7799cc" stroke-width="1.5" transform="rotate(-30 150 35)"/>
+
+        <!-- Focal length arrow (vertical, inside tube) -->
+        <line id="cmp-dob-focallen-line" x1="112" y1="97" x2="112" y2="35" stroke="#ff9900" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.3" marker-end="url(#cmp-arr-orange2)" marker-start="url(#cmp-arr-orange2-rev)"/>
+        <text id="cmp-dob-focallen-label" x="72" y="70" fill="#ff9900" font-size="9" text-anchor="middle" opacity="0.3">focal</text>
+        <text x="72" y="80" fill="#ff9900" font-size="9" text-anchor="middle" opacity="0.3" id="cmp-dob-focallen-label2">length</text>
+
+        <!-- Focuser + eyepiece (side) -->
+        <rect x="178" y="28" width="28" height="18" rx="3" fill="#1a1a3a" stroke="#3355aa" stroke-width="1.2"/>
+        <rect id="cmp-dob-ep" x="204" y="25" width="18" height="24" rx="3" fill="#2a2a5a" stroke="#6688ff" stroke-width="1.8"/>
+        <!-- Eye -->
+        <ellipse cx="213" cy="37" rx="6" ry="4" fill="none" stroke="#88aaff" stroke-width="1.2"/>
+        <circle cx="213" cy="37" r="2" fill="#88aaff"/>
+
+        <!-- Incoming rays from top -->
+        <line x1="132" y1="0" x2="132" y2="97" stroke="#ffee44" stroke-width="1.5" opacity="0.7"/>
+        <line x1="150" y1="0" x2="150" y2="97" stroke="#ffee44" stroke-width="1.5" opacity="0.7"/>
+        <line x1="168" y1="0" x2="168" y2="97" stroke="#ffee44" stroke-width="1.5" opacity="0.7"/>
+        <!-- Reflected up to secondary -->
+        <line x1="132" y1="97" x2="150" y2="35" stroke="#ffcc22" stroke-width="1.2" opacity="0.7"/>
+        <line x1="150" y1="97" x2="150" y2="35" stroke="#ffcc22" stroke-width="1.2" opacity="0.7"/>
+        <line x1="168" y1="97" x2="150" y2="35" stroke="#ffcc22" stroke-width="1.2" opacity="0.7"/>
+        <!-- Deflected to eyepiece -->
+        <line x1="150" y1="35" x2="204" y2="33" stroke="#ff9944" stroke-width="1.2" opacity="0.7"/>
+        <line x1="150" y1="35" x2="204" y2="37" stroke="#ff9944" stroke-width="1.2" opacity="0.7"/>
+        <line x1="150" y1="35" x2="204" y2="41" stroke="#ff9944" stroke-width="1.2" opacity="0.7"/>
+
+        <!-- Labels -->
+        <text x="218" y="22" fill="#88aaff" font-size="9" text-anchor="middle">Eyepiece</text>
+
+        <defs>
+          <marker id="cmp-arr-orange2" markerWidth="5" markerHeight="5" refX="5" refY="2.5" orient="auto">
+            <path d="M0,0 L5,2.5 L0,5 Z" fill="#ff9900"/>
+          </marker>
+          <marker id="cmp-arr-orange2-rev" markerWidth="5" markerHeight="5" refX="0" refY="2.5" orient="auto">
+            <path d="M5,0 L0,2.5 L5,5 Z" fill="#ff9900"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Key concepts tap cards -->
+  <div style="margin-bottom:16px; color:#88aaff; font-size:1rem; font-weight:bold;">Key Concepts — tap to reveal</div>
+
+  <div class="parts-grid">
+    <div class="part-card" onclick="togglePart(this)" data-highlight="cmp-ref-aperture-line,cmp-ref-aperture-cap-top,cmp-ref-aperture-cap-bot,cmp-ref-aperture-label,cmp-dob-aperture-line,cmp-dob-aperture-cap-left,cmp-dob-aperture-cap-right,cmp-dob-aperture-label">
+      <div class="part-name"><span class="dot" style="background:#ffcc00"></span>Aperture</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">The diameter of the main lens or mirror. Bigger aperture = more light collected = fainter objects visible. A 10" mirror collects about 4× as much light as a 5" mirror.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="cmp-ref-focallen-line,cmp-ref-focallen-label,cmp-dob-focallen-line,cmp-dob-focallen-label,cmp-dob-focallen-label2">
+      <div class="part-name"><span class="dot" style="background:#ff9900"></span>Focal Length</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">The distance from the lens/mirror to the focal point. Longer focal length = higher magnification at a given eyepiece, but narrower field of view.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="cmp-ref-focallen-line,cmp-ref-focallen-label,cmp-dob-focallen-line,cmp-dob-focallen-label,cmp-dob-focallen-label2,cmp-ref-ep,cmp-dob-ep">
+      <div class="part-name"><span class="dot" style="background:#88bbff"></span>Magnification</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc">Calculated as: <strong>telescope focal length ÷ eyepiece focal length</strong>. A 1200mm telescope with a 10mm eyepiece gives 120× magnification. Higher is not always better — too much magnification makes the image dim and blurry.</div>
+    </div>
+    <div class="part-card" onclick="togglePart(this)" data-highlight="cmp-ref-lens,cmp-dob-mirror">
+      <div class="part-name"><span class="dot" style="background:#99ddaa"></span>Refraction vs Reflection</div>
+      <div class="tap-hint">Tap to reveal</div>
+      <div class="part-desc"><strong>Refraction</strong> is when light bends as it passes through glass — different colours bend by slightly different amounts, which can cause rainbow fringes. <strong>Reflection</strong> bounces all colours equally off a mirror, so there is no colour fringing.</div>
+    </div>
+  </div>
+
+  <div class="page-footer">© Jo Blannin &nbsp;|&nbsp; <a href="mailto:joblannin@gmail.com">joblannin@gmail.com</a></div>
+
+</div>
+
+<script>
+// ── Starfield ──
+(function() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 120; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random()*100}%;
+      left:${Math.random()*100}%;
+      animation-delay:${Math.random()*4}s;
+      animation-duration:${2+Math.random()*3}s;
+    `;
+    container.appendChild(s);
+  }
+})();
+
+// ── Tab switching ──
+const tabSubtitles = {
+  refractor: 'Tap the parts to learn more \u2022 Use the slider to explore',
+  reflector: 'Tap the parts to learn more \u2022 Use the slider to explore',
+  compare:   'Tap the key concept cards to highlight both diagrams'
+};
+
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  document.getElementById('header-subtitle').textContent = tabSubtitles[id] || '';
+}
+
+// ── Part reveal + SVG highlight ──
+function clearHighlights() {
+  document.querySelectorAll('.part-card.revealed').forEach(c => {
+    c.classList.remove('revealed');
+    const ids = (c.dataset.highlight || '').split(',').filter(Boolean);
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('svg-highlight');
+    });
+  });
+}
+
+function togglePart(card) {
+  const isRevealed = card.classList.contains('revealed');
+  clearHighlights();
+  if (!isRevealed) {
+    card.classList.add('revealed');
+    const ids = (card.dataset.highlight || '').split(',').filter(Boolean);
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('svg-highlight');
+    });
+  }
+}
+
+// ── Refractor animation ──
+let refPlaying = false;
+function playRefractorAnim() {
+  const ids = ['r1','r2','r3','r4','r5','r6','r7','r8','r9','focal-ref'];
+  const epGlow = document.querySelector('#refractor .ep-glow');
+  const btn = document.getElementById('ref-anim-btn');
+
+  // Remove all animate classes first
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('animate');
+  });
+  if (epGlow) epGlow.classList.remove('animate');
+
+  // Single reflow to fully reset all animations before replaying
+  void document.getElementById('refractor-svg').getBoundingClientRect();
+
+  // Play
+  ids.slice(0,3).forEach(id => document.getElementById(id).classList.add('animate'));
+  setTimeout(() => ids.slice(3,6).forEach(id => document.getElementById(id).classList.add('animate')), 400);
+  setTimeout(() => ids.slice(6,9).forEach(id => document.getElementById(id).classList.add('animate')), 800);
+  setTimeout(() => document.getElementById('focal-ref').classList.add('animate'), 1800);
+  setTimeout(() => { if (epGlow) epGlow.classList.add('animate'); }, 2300);
+
+  btn.textContent = '↺ Replay Light Path';
+  btn.classList.add('playing');
+}
+
+// ── Reflector animation ──
+function playReflectorAnim() {
+  const ids = ['d1','d2','d3','d4','d5','d6','d7','d8','d9','focal-dob'];
+  const epGlow = document.querySelector('#reflector .ep-glow');
+  const btn = document.getElementById('dob-anim-btn');
+
+  // Remove all animate classes first
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('animate');
+  });
+  if (epGlow) epGlow.classList.remove('animate');
+
+  // Single reflow to fully reset all animations before replaying
+  void document.getElementById('reflector-svg').getBoundingClientRect();
+
+  ids.slice(0,3).forEach(id => document.getElementById(id).classList.add('animate'));
+  setTimeout(() => ids.slice(3,6).forEach(id => document.getElementById(id).classList.add('animate')), 400);
+  setTimeout(() => ids.slice(6,9).forEach(id => document.getElementById(id).classList.add('animate')), 800);
+  setTimeout(() => document.getElementById('focal-dob').classList.add('animate'), 1800);
+  setTimeout(() => { if (epGlow) epGlow.classList.add('animate'); }, 2300);
+
+  btn.textContent = '↺ Replay Light Path';
+  btn.classList.add('playing');
+}
+
+// ── Refractor slider ──
+function updateRefSlider(val) {
+  const v = parseInt(val);
+  const focuser = document.getElementById('ref-focuser');
+  const msg = document.getElementById('ref-slider-msg');
+  // Shift focuser position
+  const baseX = 618;
+  const offset = (v - 50) * 0.6;
+  focuser.setAttribute('x', baseX + offset);
+
+  if (v < 35) {
+    msg.textContent = 'Eyepiece is too far in — the image looks blurry and out of focus.';
+    msg.style.color = '#ff8866';
+  } else if (v > 65) {
+    msg.textContent = 'Eyepiece is too far out — the image is blurry. Rack it back in.';
+    msg.style.color = '#ff8866';
+  } else {
+    msg.textContent = 'Eyepiece is in focus — the image is sharp and clear!';
+    msg.style.color = '#88ffaa';
+  }
+}
+
+// ── Dobsonian slider ──
+function updateDobSlider(val) {
+  const v = parseInt(val);
+  const focuser = document.getElementById('dob-focuser');
+  const msg = document.getElementById('dob-slider-msg');
+  const baseX = 464;
+  const offset = (v - 50) * 0.5;
+  focuser.setAttribute('x', baseX + offset);
+
+  if (v < 35) {
+    msg.textContent = 'Focuser racked too far in — the image is blurry.';
+    msg.style.color = '#ff8866';
+  } else if (v > 65) {
+    msg.textContent = 'Focuser racked too far out — the image is blurry.';
+    msg.style.color = '#ff8866';
+  } else {
+    msg.textContent = 'Eyepiece is in focus — the image is sharp and clear!';
+    msg.style.color = '#88ffaa';
+  }
+}
+</script>
+</body>
+</html>
